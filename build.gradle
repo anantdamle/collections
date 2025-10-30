@@ -1,0 +1,138 @@
+/*
+ * Copyright 2025 Anant Damle
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+
+plugins {
+  id 'java'
+  id 'com.diffplug.spotless' version '8.0.0'
+  id 'jacoco'
+  id 'idea'
+}
+
+group = 'xyz.damle.collections'
+version = '0.0.1'
+
+repositories {
+  mavenLocal()
+  mavenCentral()
+}
+
+def junitVersion = "5.14.0"
+def collections4Version = "4.5.0"
+
+dependencies {
+
+  implementation "org.apache.commons:commons-collections4:${collections4Version}"
+
+  // Test Deps
+  implementation "org.apache.commons:commons-collections4:${collections4Version}:tests"
+
+  testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
+  testImplementation "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
+  testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
+  testRuntimeOnly "org.junit.platform:junit-platform-launcher:1.14.0"
+
+}
+
+
+tasks.withType(JavaCompile).configureEach {
+  sourceCompatibility = JavaVersion.VERSION_17
+  targetCompatibility = JavaVersion.VERSION_17
+  options.encoding = "UTF-8"
+}
+
+jacoco {
+  toolVersion = "0.8.12"
+}
+
+test {
+  useJUnitPlatform {
+    includeEngines "junit-jupiter"
+  }
+  dependsOn cleanTest
+  finalizedBy jacocoTestReport
+  testLogging {
+    events "passed", "skipped", "failed", "standardOut", "standardError"
+    showStandardStreams = true
+    exceptionFormat = TestExceptionFormat.FULL
+  }
+}
+
+jacocoTestReport {
+  reports {
+    csv.required = false
+    xml.required = true
+    html.required = false
+  }
+}
+
+def licenseLines = new File("ApacheHeader").readLines()
+def licenseJava = "/*\n" + licenseLines.collect(ln -> " *" + (ln.matches("^.+")? " " : "") + ln).join("\n") + "\n */\n\n"
+def licenseWithForwardSlashes = "//\n" + licenseLines.collect(ln -> "//" + (ln.matches("^.+")? " " : "") + ln).join("\n") + "\n//\n\n"
+
+spotless {
+  java {
+    target "**/*.java"
+    targetExclude "third_party/**"
+    googleJavaFormat('1.18.1')
+    removeUnusedImports()
+    importOrder()
+    trimTrailingWhitespace()
+    endWithNewline()
+    licenseHeader(licenseJava)
+  }
+
+  kotlin {
+    target "**/*.kt"
+    ktlint()
+    trimTrailingWhitespace()
+    leadingTabsToSpaces(2)
+    endWithNewline()
+    licenseHeader(licenseWithForwardSlashes)
+  }
+
+  freshmark {
+    target '*.md'
+    leadingTabsToSpaces(2)
+    trimTrailingWhitespace()
+    endWithNewline()
+  }
+
+  format "proto", {
+    target "**/*.proto"
+    licenseHeader(licenseWithForwardSlashes, "syntax")
+    leadingTabsToSpaces(2)
+    trimTrailingWhitespace()
+    endWithNewline()
+  }
+
+
+  format "gradle", {
+    target "**/*.gradle"
+    leadingTabsToSpaces(2)
+    trimTrailingWhitespace()
+    endWithNewline()
+    licenseHeader(licenseJava, "(import|plugins|rootProject)")
+  }
+
+  format "misc", {
+    target "**/.gitignore", "*.xml", "src/**/*.xml"
+    leadingTabsToSpaces(2)
+    trimTrailingWhitespace()
+    endWithNewline()
+  }
+}
